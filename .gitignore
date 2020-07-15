@@ -2,3 +2,4 @@ src/external
 cmake-build-*
 .idea
 build
+nbproject

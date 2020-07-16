@@ -22,25 +22,33 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# File:   rustify.hpp
+# File:   CMakeLists.txt
 # Author: Nick Otero
 # Website: www.redshiftinnovations.tech
 
 project(rift)
 cmake_minimum_required(VERSION 3.14)
-include(ExternalProject)
-include_directories(include src/external)
-set(CMAKE_CXX_FLAGS --std=c++2a)
+set(CMAKE_CXX_FLAGS --std=c++20)
 
-#ExternalProject_Add(
-#    catch2
-#    PREFIX "external/"
-#    URL https://raw.githubusercontent.com/catchorg/Catch2/master/single_include/catch2/catch.hpp
-#    CONFIGURE_COMMAND ""
-#    BUILD_COMMAND ""
-#    INSTALL_COMMAND ""
-#)
+# --- Get Catch2 ---
+include(ExternalProject)
+ExternalProject_Add(
+    catch2
+    PREFIX "${CMAKE_SOURCE_DIR}/external/"
+    URL https://raw.githubusercontent.com/catchorg/Catch2/master/single_include/catch2/catch.hpp
+    DOWNLOAD_NO_EXTRACT 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+)
+include_directories(${CMAKE_SOURCE_DIR}/external/src)
+# --- ---
+
+include_directories(include)
 
 add_executable(test_bounded test/numeric/test_bounded.cpp)
+add_dependencies(test_bounded catch2)
 add_executable(test_probability test/numeric/test_probability.cpp)
+add_dependencies(test_probability catch2)
 add_executable(test_dijkstra test/algorithms/search/test_dijkstra.cpp)
+add_dependencies(test_dijkstra catch2)

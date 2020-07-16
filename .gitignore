@@ -1,4 +1,4 @@
-src/external
+external/
 cmake-build-*
 .idea
 build

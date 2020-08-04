@@ -36,13 +36,64 @@
 
 using namespace rift;
 
-TEST_CASE( "Dijkstra is callable", "[dijkstra]" ) {
+struct OrderedStruct {
+    OrderedStruct(int _value) : value(_value) {}
+    std::strong_ordering operator<=>(OrderedStruct const& rhs) const = default;
+    
+private:
+    int value;
+};
+
+TEST_CASE( "Dijkstra on integers", "[dijkstra]" ) {
     let neighborOf = [](int i) -> std::vector<int> { 
         return {i - 1, i + 1};
     };
     let costToGo = [](let l, let r) { return std::abs(l - r); };
-    let result = dijkstra(0, 1, neighborOf, costToGo);
+    let testDijkstra = [&](int start, int goal) {
+        return dijkstra(start, goal, neighborOf, costToGo);
+    };
+    
+    auto result = testDijkstra(0, 0);
     REQUIRE(result);
+    REQUIRE(result->size() == 1);
+    CHECK(result->front() == 0);
+    
+    result = testDijkstra(0, 1);
+    REQUIRE(result);
+    REQUIRE(result->size() == 2);
     CHECK(0 == result->front());
     CHECK(1 == result->back());
+    
+    result = testDijkstra(1, 0);
+    REQUIRE(result);
+    REQUIRE(result->size() == 2);
+    CHECK(1 == result->front());
+    CHECK(0 == result->back());
+    
+    result = testDijkstra(0, -1);
+    REQUIRE(result);
+    REQUIRE(result->size() == 2);
+    CHECK(result->front() == 0);
+    CHECK(result->back() == -1);
+    
+    result = testDijkstra(-1, 0);
+    REQUIRE(result);
+    REQUIRE(result->size() == 2);
+    CHECK(result->front() == -1);
+    CHECK(result->back() == 0);
+    
+    result = testDijkstra(0, 100);
+    REQUIRE(result);
+    REQUIRE(result->size() == 101);
+    for (int i = 0; i <= 100; ++i) {
+        CHECK(i == (*result)[i]);
+    }
+}
+
+TEST_CASE( "Node Arena type is correct", "[dijkstra]" ) {
+    auto nodeArena = detail::makeNodeArena<int, int>(10);
+    CHECK(std::is_same_v<detail::HashedArena<int, int>, decltype(nodeArena)>);
+    auto nodeArena1 = detail::makeNodeArena<OrderedStruct, int>(10);
+    CHECK(std::is_same_v<
+        detail::OrderedArena<OrderedStruct, int>, decltype(nodeArena1)>);
 }

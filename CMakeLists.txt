@@ -28,7 +28,7 @@
 
 project(rift)
 cmake_minimum_required(VERSION 3.14)
-set(CMAKE_CXX_FLAGS "--std=c++20 -Wfatal-errors")
+set(CMAKE_CXX_FLAGS "--std=c++20")
 
 # --- Get Catch2 ---
 include(ExternalProject)

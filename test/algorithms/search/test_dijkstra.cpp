@@ -33,6 +33,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch.hpp>
 #include <rift/algorithms/search/dijkstra.hpp>
+#include <rift/util/zip.hpp>
 
 using namespace rift;
 
@@ -88,6 +89,50 @@ TEST_CASE( "Dijkstra on integers", "[dijkstra]" ) {
     for (int i = 0; i <= 100; ++i) {
         CHECK(i == (*result)[i]);
     }
+}
+
+TEST_CASE( "Dijkstra on empty flat grid", "[dijkstra]" ) {
+    constexpr std::array grid = {
+        'x', 'x', 'x', 'x', 'x', 'x', 'x',
+        'x', 'a', 'b', 'c', 'd', 'e', 'x',
+        'x', 'e', 'f', 'g', 'h', 'j', 'x',
+        'x', 'i', 'j', 'k', 'l', 'o', 'x', 
+        'x', 'm', 'n', 'o', 'p', 't', 'x',
+        'x', 'u', 'v', 'w', 'y', 'z', 'x',
+        'x', 'x', 'x', 'x', 'x', 'x', 'x'
+    };
+    let neighborFn = [](unsigned int i) {
+        std::vector<unsigned int> result;
+        result.push_back(i + 1);
+        result.push_back(i + 7);
+        if (i >= 1) result.push_back(i - 1);
+        if (i >= 7) result.push_back(i - 7);
+        return result;
+    };
+    let costFn = [&grid](unsigned int f, unsigned int t) {
+        REQUIRE(t < grid.size());
+        let value = grid[t];
+        if (value == 'x') return std::numeric_limits<unsigned char>::max();
+        else return static_cast<unsigned char>(1);
+    };
+    let testDijkstra = [&](
+        unsigned int start, 
+        unsigned int goal,
+        std::vector<unsigned int> expected) {
+        
+        let maybePath = dijkstra(start, goal, neighborFn, costFn);
+        REQUIRE(maybePath);
+        CHECK(maybePath->size() == expected.size());
+        let zippedResult = zip(*maybePath, expected);
+        for (let p : zippedResult) CHECK(p.first == p.second); 
+    };
+    testDijkstra(8, 8, {8});
+    testDijkstra(8, 9, {8, 9});
+    testDijkstra(8, 12, {8, 9, 10, 11, 12});
+    testDijkstra(8, 15, {8, 15});
+    testDijkstra(8, 22, {8, 15, 22});
+    testDijkstra(8, 36, {8, 15, 22, 29, 36});
+    testDijkstra(8, 40, {8, 9, 10, 11, 18, 25, 32, 39, 40});
 }
 
 TEST_CASE( "Node Arena type is correct", "[dijkstra]" ) {

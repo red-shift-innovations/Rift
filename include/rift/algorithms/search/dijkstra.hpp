@@ -131,7 +131,7 @@ namespace detail {
      * \return The created HashedArena
      */
     template <Hashable T, typename C>
-    fn makeNodeArena(size_t sizeHint) -> HashedArena<T, C> {
+    constexpr fn makeNodeArena(size_t sizeHint) -> HashedArena<T, C> {
         HashedArena<T, C> result;
         result.reserve(sizeHint);
         return result;
@@ -156,7 +156,7 @@ namespace detail {
      */
     template <typename T, typename C>
     requires (!Hashable<T> && std::strict_weak_order<std::less<T>, T, T>)
-    fn makeNodeArena(size_t sizeHint) -> OrderedArena<T, C> {
+    constexpr fn makeNodeArena(size_t sizeHint) -> OrderedArena<T, C> {
         OrderedArena<T, C> result;
         return result;
     }

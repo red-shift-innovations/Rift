@@ -42,8 +42,8 @@ namespace rift {
      * from each input range.
      * 
      * \tparam T the type of range to be combined
-     * \param range1 the first range to combine
-     * \param range2 the second range to combine
+     * \param[in] range1 the first range to combine
+     * \param[in] range2 the second range to combine
      * \return a range containing pairs of elements from both input ranges
      */
     template <typename T>

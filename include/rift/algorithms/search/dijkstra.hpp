@@ -125,7 +125,7 @@ namespace detail {
      * 
      * \tparam T The user's hashable domain type
      * \tparam C The type encoding edge costs within the graph
-     * \param sizeHint A size to initialize the arena with for optimal 
+     * \param[in] sizeHint A size to initialize the arena with for optimal 
      *        allocations
      *
      * \return The created HashedArena
@@ -149,7 +149,7 @@ namespace detail {
      * 
      * \tparam T The user's weakly orderable domain type
      * \tparam C The type encoding edge costs within the graph
-     * \param sizeHint A size to initialize the arena with for optimal 
+     * \param[in] sizeHint A size to initialize the arena with for optimal 
      *        allocations
      *
      * \return The created OrderedArena
@@ -191,13 +191,13 @@ namespace detail {
      * \tparam T an equality comparable type encoding the domain of the search
      * \tparam N an invocable which returns a vector<T> of neighbors
      * \tparam G an invocable which returns an aritmetic type encoding edge cost
-     * \param start the starting point of the search
-     * \param goal the goal point of the search
-     * \param neighborFn the invocable which provides neighbors of the user's
+     * \param[in] start the starting point of the search
+     * \param[in] goal the goal point of the search
+     * \param[in] neighborFn the invocable which provides neighbors of the user's
      *        data
-     * \param costFn the invocable which provides edge costs between the user's
+     * \param[in] costFn the invocable which provides edge costs between the user's
      *        data
-     * \param sizeHint a size hint used to optimize allocations
+     * \param[in] sizeHint a size hint used to optimize allocations
      * 
      * \return A std::optional containing std::nullopt if no path is found, or
      *         a vector of data within the user's domain forming a path from
@@ -288,7 +288,6 @@ namespace detail {
         result.push_back(goal);
         auto parent = goalNode.parent;
         while (parent && parent->data != start) {
-//            std::cout << parent->data << std::endl;
             result.push_back(parent->data);
             parent = parent->parent;
         }

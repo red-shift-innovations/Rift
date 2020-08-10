@@ -135,6 +135,45 @@ TEST_CASE( "Dijkstra on empty flat grid", "[dijkstra]" ) {
     testDijkstra(8, 40, {8, 9, 10, 11, 18, 25, 32, 39, 40});
 }
 
+TEST_CASE( "Dijkstra on an occupied flat grid", "[dijkstra]" ) {
+    constexpr std::array grid = {
+        'x', 'x', 'x', 'x', 'x', 'x', 'x',
+        'x', 'a', 'b', 'x', 'd', 'e', 'x',
+        'x', 'x', 'f', 'x', 'h', 'j', 'x',
+        'x', 'i', 'j', 'x', 'l', 'o', 'x', 
+        'x', 'm', 'x', 'x', 'x', 'n', 'x',
+        'x', 'u', 'v', 'w', 'y', 'z', 'x',
+        'x', 'x', 'x', 'x', 'x', 'x', 'x'
+    };
+    let neighborFn = [](unsigned int i) {
+        std::vector<unsigned int> result;
+        result.push_back(i + 1);
+        result.push_back(i + 7);
+        if (i >= 1) result.push_back(i - 1);
+        if (i >= 7) result.push_back(i - 7);
+        return result;
+    };
+    let costFn = [&grid](unsigned int f, unsigned int t) {
+        REQUIRE(t < grid.size());
+        let value = grid[t];
+        if (value == 'x') return std::numeric_limits<unsigned char>::max();
+        else return static_cast<unsigned char>(1);
+    };
+    let testDijkstra = [&](
+        unsigned int start, 
+        unsigned int goal,
+        std::vector<unsigned int> expected) {
+        
+        let maybePath = dijkstra(start, goal, neighborFn, costFn);
+        REQUIRE(maybePath);
+        CHECK(maybePath->size() == expected.size());
+        let zippedResult = zip(*maybePath, expected);
+        for (let p : zippedResult) CHECK(p.first == p.second); 
+    };
+    testDijkstra(8, 11, {8, 9, 16, 23, 22, 29, 36, 37, 38, 39, 40, 33, 26, 25, 18, 11});
+    testDijkstra(11, 8, {11, 12, 19, 26, 33, 40, 39, 38, 37, 36, 29, 22, 23, 16, 9, 8});
+}
+
 TEST_CASE( "Node Arena type is correct", "[dijkstra]" ) {
     auto nodeArena = detail::makeNodeArena<int, int>(10);
     CHECK(std::is_same_v<detail::HashedArena<int, int>, decltype(nodeArena)>);

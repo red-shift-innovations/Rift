@@ -40,6 +40,7 @@
 #include <vector>
 
 #include <rift/algorithms/search/search_concepts.hpp>
+#include <rift/util/index.hpp>
 #include <rift/util/rustify.hpp>
 
 namespace rift {
@@ -77,18 +78,23 @@ namespace detail {
     };
     /** Utility type alias for shared_ptrs of type DijkstraNode */
     template <typename T, typename C>
-    using DijkstraNodePtr = std::shared_ptr<DijkstraNode<T, C>>;;
+    using DijkstraNodePtr = std::shared_ptr<DijkstraNode<T, C>>;
+    
+    template <typename T, typename C>
+    using DenseArena = std::vector<DijkstraNodePtr<T, C>>;
+    
+    
     
     /** Utility stuct for base case predicate to determine if a type is hashable 
       * using std::hash */
     template <typename T, typename = std::void_t<>>
-    struct is_std_hashable : std::false_type { };
+    struct IsStdHashable : std::false_type { };
 
     /** Meta function used to determine if a given struct is hashable using
      * std::hash
      */
     template <typename T>
-    struct is_std_hashable<T, std::void_t<
+    struct IsStdHashable<T, std::void_t<
         decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> 
     : std::true_type { };
 
@@ -97,7 +103,9 @@ namespace detail {
      * tested using the meta function is_std::hashable<T>
      */
     template <typename T>
-    concept Hashable = is_std_hashable<T>::value; 
+    concept Hashable = 
+        IsStdHashable<T>::value 
+        && !std::same_as<T, Index>; 
     
     /**
      * A HashedArena is a std::unordered_map which maps from the user's domain
@@ -107,13 +115,44 @@ namespace detail {
     using HashedArena = 
         std::unordered_map<T, DijkstraNodePtr<T, C>>;
     
+    template <typename T>
+    concept Ordered = 
+        !Hashable<T> 
+        && std::strict_weak_order<std::less<T>, T, T>
+        && !std::same_as<T, Index>;
+    
     /**
      * An OrderedArena is a std::map which maps from the user's domain
      * to the Dijkstra search graph domain
      */
-    template <typename T, typename C>
+    template <Ordered T, typename C>
     using OrderedArena = 
         std::map<T, DijkstraNodePtr<T, C>>;
+    
+    template <typename C, typename K, typename V>
+    fn emplace(C& c, K&& k, V&& v) {
+        auto [it, wasInserted] = 
+            c.emplace(std::make_pair(std::forward<K>(k), std::forward<V>(v)));
+        return it->second;
+    }
+    
+    template <typename C>
+    fn emplace(
+        DenseArena<Index, C>& arena, 
+        Index index, 
+        typename DenseArena<Index, C>::value_type value) {
+        
+        if (index.index >= arena.size()) {
+            arena.resize(index.index + 1);
+        }
+        let storedValue = arena[index.index];
+        if (!storedValue) {
+            arena[index.index] = value;
+            return value;
+        } else {
+            return storedValue;
+        }
+    }
     
     /**
      * Make a HashedArena to be used for the Dijkstra search
@@ -131,7 +170,7 @@ namespace detail {
      * \return The created HashedArena
      */
     template <Hashable T, typename C>
-    constexpr fn makeNodeArena(size_t sizeHint) -> HashedArena<T, C> {
+    fn makeNodeArena(size_t sizeHint) -> HashedArena<T, C> {
         HashedArena<T, C> result;
         result.reserve(sizeHint);
         return result;
@@ -154,10 +193,16 @@ namespace detail {
      *
      * \return The created OrderedArena
      */
-    template <typename T, typename C>
-    requires (!Hashable<T> && std::strict_weak_order<std::less<T>, T, T>)
-    constexpr fn makeNodeArena(size_t sizeHint) -> OrderedArena<T, C> {
+    template <Ordered T, typename C>
+    fn makeNodeArena(size_t sizeHint) -> OrderedArena<T, C> {
         OrderedArena<T, C> result;
+        return result;
+    }
+    
+    template <typename I, typename C>
+    requires std::same_as<I, Index>
+    fn makeNodeArena(size_t sizeHint) -> DenseArena<Index, C> {
+        DenseArena<Index, C> result(sizeHint);
         return result;
     }
 
@@ -214,6 +259,7 @@ namespace detail {
         using NodePtr = detail::DijkstraNodePtr<T, Cost>;
         std::vector<T> result;
         State searchState;
+        searchState.nodeArena = std::move(arena);
         let sortNodes = [](let l, let r) {return l->costToCome > r->costToCome;};
         let push = [&openSet = searchState.openSet, &sortNodes](NodePtr n) {
             // Don't push nodes if they have already been closed
@@ -254,11 +300,11 @@ namespace detail {
             return result;
         }
         
-        auto [startIt, startInserted] = searchState.nodeArena.emplace(
-            start, std::make_shared<Node>(start));
+        auto startNodePtr = emplace(
+            searchState.nodeArena, start, std::make_shared<Node>(start));
         Node goalNode(goal);
-        startIt->second->costToCome = 0;
-        searchState.openSet.push_back(startIt->second);
+        startNodePtr->costToCome = 0;
+        searchState.openSet.push_back(startNodePtr);
         while (!searchState.openSet.empty()) {
             let currentNode = pop();
             if (currentNode->data == goal) {
@@ -267,9 +313,10 @@ namespace detail {
             }
             let neighbors = neighborFn(currentNode->data);
             for (let neighbor : neighbors) {
-                auto [it, inserted] = searchState.nodeArena.emplace(
-                    neighbor, std::make_shared<Node>(neighbor));
-                NodePtr neighborNode = it->second;
+                NodePtr neighborNode = emplace(
+                    searchState.nodeArena, 
+                    neighbor, 
+                    std::make_shared<Node>(neighbor));
                                           
                 let newCost = currentNode->costToCome 
                     + costFn(currentNode->data, neighbor);

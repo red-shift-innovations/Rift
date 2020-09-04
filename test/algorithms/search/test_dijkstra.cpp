@@ -174,10 +174,53 @@ TEST_CASE( "Dijkstra on an occupied flat grid", "[dijkstra]" ) {
     testDijkstra(11, 8, {11, 12, 19, 26, 33, 40, 39, 38, 37, 36, 29, 22, 23, 16, 9, 8});
 }
 
+TEST_CASE( "Dijkstra with dense iterator", "[dijkstra]" ) {
+    constexpr std::array grid = {
+        'x', 'x', 'x', 'x', 'x', 'x', 'x',
+        'x', 'a', 'b', 'c', 'd', 'e', 'x',
+        'x', 'e', 'f', 'g', 'h', 'j', 'x',
+        'x', 'i', 'j', 'k', 'l', 'o', 'x', 
+        'x', 'm', 'n', 'o', 'p', 't', 'x',
+        'x', 'u', 'v', 'w', 'y', 'z', 'x',
+        'x', 'x', 'x', 'x', 'x', 'x', 'x'
+    };
+    let neighborFn = [&](auto const& i) {
+        std::vector<Index> result;
+        result.push_back(i + 1);
+        result.push_back(i + 7);
+        if (i >= 1) result.push_back(i - 1);
+        if (i >= 7) result.push_back(i - 7);
+        return result;
+    };
+    let costFn = [&](auto const& from, auto const& to) {
+        REQUIRE(to < grid.size());
+        let value = grid[to.index];
+        if (value == 'x') return std::numeric_limits<unsigned char>::max();
+        else return static_cast<unsigned char>(1);
+    };
+    let testDijkstra = [&](
+        Index start, 
+        Index goal,
+        std::vector<Index> expected) {
+        
+        let maybePath = dijkstra(start, goal, neighborFn, costFn);
+        REQUIRE(maybePath);
+        CHECK(maybePath->size() == expected.size());
+        let zippedResult = zip(*maybePath, expected);
+        for (let p : zippedResult) CHECK(p.first == p.second); 
+    };
+    std::vector<size_t> expected = {8, 9, 10, 11, 18, 25, 32, 39, 40};
+    std::vector<Index> expectedIndices;
+    std::ranges::transform(expected, std::back_inserter(expectedIndices), [](auto i){return Index(i);});
+    testDijkstra(Index(8), Index(40), expectedIndices);
+}
+
 TEST_CASE( "Node Arena type is correct", "[dijkstra]" ) {
     auto nodeArena = detail::makeNodeArena<int, int>(10);
     CHECK(std::is_same_v<detail::HashedArena<int, int>, decltype(nodeArena)>);
     auto nodeArena1 = detail::makeNodeArena<OrderedStruct, int>(10);
     CHECK(std::is_same_v<
         detail::OrderedArena<OrderedStruct, int>, decltype(nodeArena1)>);
+    auto nodeArena2 = detail::makeNodeArena<Index, int>(10);
+    CHECK(std::is_same_v<detail::DenseArena<Index, int>, decltype(nodeArena2)>);
 }

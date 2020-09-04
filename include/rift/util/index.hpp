@@ -25,49 +25,38 @@
  */
 
 /* 
- * File:   zip.hpp
+ * File:   index.hpp
  * Author: Nick Otero
  * Website: www.redshiftinnovations.tech
  */
 
 #pragma once
 
-#include <algorithm>
-#include <rift/util/rustify.hpp>
-
 namespace rift {
-    
-    /**
-     * Combine two ranges to make a single range containing pairs of elements
-     * from each input range.
-     * 
-     * \tparam T the type of range to be combined
-     * \param[in] range1 the first range to combine
-     * \param[in] range2 the second range to combine
-     * \return a range containing pairs of elements from both input ranges
-     */
-    template <std::ranges::range T, std::ranges::range U>
-    fn zip(T range1, U range2) 
-        -> std::vector<
-            std::pair<typename T::value_type, typename U::value_type>> {
+    struct Index {
+        std::size_t index;
         
-        using ValueType1 = typename T::value_type;
-        using ValueType2 = typename U::value_type;
-        std::vector<std::pair<ValueType1, ValueType2>> result;
-        let makePair = [](let first, let second) { 
-            return std::make_pair(first, second);
-        };
-        let doZip = [&](let first, let second) {
-            std::transform(
-                begin(first), 
-                end(first), 
-                begin(second),
-                std::back_inserter(result),
-                makePair);
-        };
-        if (range2.size() >= range1.size()) {
-            doZip(range1, range2);
+        explicit Index(size_t i) : index(i) {}
+        
+        bool operator==(Index const& other) const noexcept {
+            return index == other.index;
         }
-        return result;
+        
+        std::weak_ordering operator<=>(size_t other) const noexcept {
+            return index <=> other;
+        }
+        
+        Index operator+(size_t other) const noexcept { 
+            return Index(index + other); 
+        }
+        
+        Index operator-(size_t other) const noexcept { 
+            return Index(index - other); 
+        }
+    };
+    
+    std::ostream& operator<<(std::ostream& out, Index index) noexcept {
+        out << index.index
+;        return out;
     }
 }

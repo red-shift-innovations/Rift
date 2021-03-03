@@ -25,38 +25,22 @@
  */
 
 /* 
- * File:   index.hpp
+ * File:   concepts.hpp
  * Author: Nick Otero
  * Website: www.redshiftinnovations.tech
  */
 
 #pragma once
 
+#include <rift/util/type_traits.hpp>
+
 namespace rift {
-    struct Index {
-        std::size_t index;
-        
-        explicit Index(size_t i) : index(i) {}
-        
-        bool operator==(Index const& other) const noexcept {
-            return index == other.index;
-        }
-        
-        std::weak_ordering operator<=>(size_t other) const noexcept {
-            return index <=> other;
-        }
-        
-        Index operator+(size_t other) const noexcept { 
-            return Index(index + other); 
-        }
-        
-        Index operator-(size_t other) const noexcept { 
-            return Index(index - other); 
-        }
-    };
     
-//    std::ostream& operator<<(std::ostream& out, Index index) noexcept {
-//        out << index.index;
-//        return out;
-//    }
+    /**
+     * A type is Hashable if it has an implementation for std::hash<T>. This is
+     * tested using the meta function is_std::hashable<T>
+     */
+    template <typename T>
+    concept Hashable = IsStdHashable<T>::value; 
+    
 }

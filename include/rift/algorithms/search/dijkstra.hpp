@@ -35,6 +35,8 @@
 #include <algorithm>
 #include <concepts>
 #include <limits>
+#include <map>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <vector>
@@ -42,6 +44,8 @@
 #include <rift/algorithms/search/search_concepts.hpp>
 #include <rift/util/index.hpp>
 #include <rift/util/rustify.hpp>
+
+#include <queue>
 
 namespace rift {
 namespace detail {
@@ -82,9 +86,7 @@ namespace detail {
     
     template <typename T, typename C>
     using DenseArena = std::vector<DijkstraNodePtr<T, C>>;
-    
-    
-    
+
     /** Utility stuct for base case predicate to determine if a type is hashable 
       * using std::hash */
     template <typename T, typename = std::void_t<>>
@@ -343,6 +345,125 @@ namespace detail {
         }
         result.push_back(start);
         std::reverse(begin(result), end(result));
+        return result;
+    }
+    
+    
+    struct FlatGrid {
+        /**
+         * Construct a FlatGrid using only its size
+         * @param pWidth The width of the grid
+         * @param pHeight The height of the grid
+         */
+        FlatGrid(size_t pWidth, size_t pHeight) : width(pWidth), height(pHeight) {
+            data.resize(width * height);
+        }
+        
+        /**
+         * Construct a FlatGrid wth a size and initialize data from a copy
+         * @param pWidth The width of the grid
+         * @param pHeight The height of the grid
+         * @param pData The data from which a copy will be made
+         */
+        FlatGrid(size_t pWidth, size_t pHeight, std::vector<bool> const& pData)
+                : width(pWidth), height(pHeight), data(pData) {}
+        
+        /**
+         * Construct a FlatGrid with a size and move the given data into this 
+         * FlatGrid instance
+         * @param pWidth The width of the grid
+         * @param pHeight The height of the grid
+         * @param pData An rvalue reference to the data of this grid
+         */
+        FlatGrid(size_t pWidth, size_t pHeight, std::vector<bool>&& pData)
+                : width(pWidth), height(pHeight), data(std::move(pData)) {}
+        
+         size_t const width, height;
+         std::vector<bool> data;
+    };
+    
+    fn getNeighbors(FlatGrid searchDomain, size_t index) 
+    -> std::vector<size_t> {
+        
+        std::vector<size_t> result;
+        let push = [&result](bool cond, size_t i) {
+            if (cond) result.push_back(i);
+        };
+        push(index > 0, index - 1);
+        push(index < searchDomain.data.size() - 1, index + 1);
+        push(index >= searchDomain.width, index - searchDomain.width);
+        push(
+            index < searchDomain.data.size() - searchDomain.width, 
+            index + searchDomain.width);
+        return result;
+    }
+    
+    struct SimpleDijkstraNode {
+        size_t index = 0;
+        bool isOpen = false;
+        bool isClosed = false;
+        size_t costToCome = std::numeric_limits<size_t>::max();
+        size_t parent = 0;
+    };
+    
+    fn operator<=>(SimpleDijkstraNode const& lhs, SimpleDijkstraNode const& rhs)
+    noexcept -> std::weak_ordering {
+            
+        return lhs.costToCome <=> rhs.costToCome;
+    }
+    
+    fn simpleDijkstra(FlatGrid searchDomain, size_t start, size_t goal) 
+    -> std::vector<size_t> {
+        
+        // If the goal is obstructed, no path will be found
+        if (searchDomain.data[goal]) return std::vector<size_t>();
+        
+        // Setup data structures
+        std::vector<SimpleDijkstraNode> nodes(searchDomain.data.size());
+        std::ranges::for_each(nodes, [i = 0](auto& n) mutable {n.index = i++;});
+        std::vector<size_t> result;
+        std::priority_queue<std::reference_wrapper<SimpleDijkstraNode>> openSet;
+
+        // Initialize search
+        SimpleDijkstraNode& startNode = nodes[start];
+        openSet.push(std::ref(startNode));
+        
+        // Perform search
+        while (!openSet.empty()) {
+            // Get next node to examine
+            SimpleDijkstraNode& currentNode = openSet.top();
+            openSet.pop();
+            if (currentNode.index == goal) break;
+            if (currentNode.isClosed) continue;
+            currentNode.isClosed = true;
+            
+            for (let n : getNeighbors(searchDomain, currentNode.index)) {
+                if (searchDomain.data[n]) continue;
+                SimpleDijkstraNode& neighborNode = nodes[n];
+                if (neighborNode.isClosed) continue;
+                
+                let cost = currentNode.costToCome + 1;
+                if (cost < neighborNode.costToCome) {
+                    neighborNode.costToCome = cost;
+                    neighborNode.parent = currentNode.index;
+                    neighborNode.isOpen = true;
+                    openSet.push(std::ref(neighborNode));
+                }
+            }
+        }
+        
+        auto& goalNode = nodes[goal];
+        if (goalNode.costToCome == std::numeric_limits<size_t>::max()) {
+            return std::vector<size_t>();
+        }
+        result.push_back(goal);
+        auto parent = goalNode.parent;
+        while (parent != start) {
+            result.push_back(parent);
+            parent = nodes[parent].parent;
+        }
+        result.push_back(start);
+        std::ranges::reverse(result);
         return result;
     }
 }

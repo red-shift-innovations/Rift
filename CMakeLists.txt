@@ -35,7 +35,7 @@ include(ExternalProject)
 ExternalProject_Add(
     catch2
     PREFIX "${CMAKE_SOURCE_DIR}/external/"
-    URL https://raw.githubusercontent.com/catchorg/Catch2/master/single_include/catch2/catch.hpp
+    URL https://raw.githubusercontent.com/catchorg/Catch2/v2.x/single_include/catch2/catch.hpp
     DOWNLOAD_NO_EXTRACT 1
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
@@ -52,3 +52,5 @@ add_executable(test_probability test/numeric/test_probability.cpp)
 add_dependencies(test_probability catch2)
 add_executable(test_dijkstra test/algorithms/search/test_dijkstra.cpp)
 add_dependencies(test_dijkstra catch2)
+add_executable(test_priority_search test/algorithms/search/test_priority_search.cpp)
+add_dependencies(test_priority_search catch2)

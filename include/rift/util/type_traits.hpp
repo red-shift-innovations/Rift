@@ -25,7 +25,7 @@
  */
 
 /* 
- * File:   index.hpp
+ * File:   type_traits.hpp
  * Author: Nick Otero
  * Website: www.redshiftinnovations.tech
  */
@@ -33,30 +33,18 @@
 #pragma once
 
 namespace rift {
-    struct Index {
-        std::size_t index;
-        
-        explicit Index(size_t i) : index(i) {}
-        
-        bool operator==(Index const& other) const noexcept {
-            return index == other.index;
-        }
-        
-        std::weak_ordering operator<=>(size_t other) const noexcept {
-            return index <=> other;
-        }
-        
-        Index operator+(size_t other) const noexcept { 
-            return Index(index + other); 
-        }
-        
-        Index operator-(size_t other) const noexcept { 
-            return Index(index - other); 
-        }
-    };
     
-//    std::ostream& operator<<(std::ostream& out, Index index) noexcept {
-//        out << index.index;
-//        return out;
-//    }
+    /** Utility stuct for base case predicate to determine if a type is hashable 
+      * using std::hash */
+    template <typename T, typename = std::void_t<>>
+    struct IsStdHashable : std::false_type { };
+
+    /** Meta function used to determine if a given struct is hashable using
+     * std::hash
+     */
+    template <typename T>
+    struct IsStdHashable<T, std::void_t<
+        decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> 
+    : std::true_type { };
+    
 }

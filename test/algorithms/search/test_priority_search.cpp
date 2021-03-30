@@ -32,8 +32,9 @@
 
 #define CATCH_CONFIG_MAIN
 #include <catch.hpp>
-#include <rift/algorithms/search/priority_search.hpp>
 #include <rift/util/zip.hpp>
+
+import priority_search;
 
 using namespace rift;
 
@@ -211,7 +212,10 @@ TEST_CASE( "Search with dense iterator", "[priority_search]" ) {
     };
     std::vector<size_t> expected = {8, 9, 10, 11, 18, 25, 32, 39, 40};
     std::vector<Index> expectedIndices;
-    std::ranges::transform(expected, std::back_inserter(expectedIndices), [](auto i){return Index(i);});
+    std::ranges::transform(
+        expected, 
+        std::back_inserter(expectedIndices), 
+        [](auto i) { return Index(i); });
     testSearch(Index(8), Index(40), expectedIndices);
 }
 
@@ -220,7 +224,7 @@ TEST_CASE( "Node Arena type is correct", "[priority_search]" ) {
     CHECK(std::is_same_v<detail::HashedArena<int, int>, decltype(nodeArena)>);
     auto nodeArena1 = detail::makeNodeArena<OrderedStruct, int>(10);
     CHECK(std::is_same_v<
-        detail::OrderedArena<OrderedStruct, int>, decltype(nodeArena1)>);
+         detail::OrderedArena<OrderedStruct, int>, decltype(nodeArena1)>);
     auto nodeArena2 = detail::makeNodeArena<Index, int>(10);
     CHECK(std::is_same_v<detail::DenseArena<Index, int>, decltype(nodeArena2)>);
 }

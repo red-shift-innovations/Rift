@@ -30,14 +30,20 @@
  * Website: www.redshiftinnovations.tech
  */
 
-#pragma once
+module;
+// Standard Library Headers
+#include <functional>
 
+// Project Headers
 #include <rift/algorithms/search/search_concepts.hpp>
 #include <rift/util/concepts.hpp>
 #include <rift/util/index.hpp>
 #include <rift/util/type_traits.hpp>
 
+// Syntax Headers (MUST BE LAST)
 #include <rift/util/rustify.hpp>
+
+export module priority_search;
 
 namespace rift {
 namespace detail {
@@ -60,8 +66,8 @@ namespace detail {
         /** The data represented by this node */
         T data;
 
-        /** The parent of this node */
-        std::shared_ptr<SearchNode<T, C>> parent;
+        /** The parent of this node. May be null */
+        SearchNode<T, C>* parent;
 
         /** The accumulated cost to come to this node */
         C costToCome = std::numeric_limits<C>::max();
@@ -73,10 +79,12 @@ namespace detail {
         bool isClosed = false;
     };
     
-    /** Utility type alias for shared_ptrs of type SearchNode */
+    /** Utility type alias for unique_ptrs of type SearchNode */
     template <typename T, typename C>
-    using SearchNodePtr = std::shared_ptr<SearchNode<T, C>>;
-    
+    using SearchNodePtr = std::unique_ptr<SearchNode<T, C>>;
+    /** Utility type alias for reference_wrappers of type SearchNode */
+    template <typename T, typename C>
+    using SearchNodeRef = std::reference_wrapper<SearchNode<T, C>>;    
     /**
      * A DenseArena is a vector of SearchNodePtrs.
      */
@@ -117,13 +125,13 @@ namespace detail {
      * \param key the user domain value.
      * \param value the search node domain value.
      * 
-     * \return the emplaced value.
+     * \return a reference to the emplaced value.
      */
     template <typename C, typename K, typename V>
-    fn emplace(C& container, K&& key, V&& value) -> V {
+    fn emplace(C& container, K&& key, V&& value) {
         auto [it, wasInserted] = container.emplace(
             std::make_pair(std::forward<K>(key), std::forward<V>(value)));
-        return it->second;
+        return std::ref(*(it->second));
     }
     
     /**
@@ -135,21 +143,21 @@ namespace detail {
      * 
      * \return the emplaced value.
      */
-    template <typename T>
+    template <typename T, typename V>
     fn emplace(
         DenseArena<Index, T>& arena, 
         Index index, 
-        typename DenseArena<Index, T>::value_type value) {
+        V&& value) {
         
         if (index.index >= arena.size()) {
             arena.resize(index.index + 1);
         }
-        let storedValue = arena[index.index];
+        let& storedValue = arena[index.index];
         if (!storedValue) {
-            arena[index.index] = value;
-            return value;
+            arena[index.index] = std::forward<V>(value);
+            return std::ref(*arena[index.index]);
         } else {
-            return storedValue;
+            return std::ref(*storedValue);
         }
     }
     
@@ -209,7 +217,7 @@ namespace detail {
      * \return a DenseArena of search nodes.
      */
     template <typename I, typename C>
-    requires std::same_as<I, std::decay_t<Index>>
+    requires std::same_as<std::decay_t<I>, Index>
     fn makeNodeArena(size_t sizeHint) -> DenseArena<Index, C> {
         DenseArena<Index, C> result(sizeHint);
         return result;
@@ -229,7 +237,7 @@ namespace detail {
         Arena nodeArena;
         
         /** The set of open nodes to be expanded for the search */
-        std::vector<SearchNodePtr<T, C>> openSet;
+        std::vector<SearchNodeRef<T, C>> openSet;
     };
 }
 
@@ -237,49 +245,53 @@ template <
     std::equality_comparable T, 
     NeighborFn<T> N,
     CostFn<T> G>
-fn prioritySearch(T start, T goal, N neighborFn, G costFn, size_t sizeHint = 1000) 
+export fn prioritySearch(T start, T goal, N neighborFn, G costFn, size_t sizeHint = 1000) 
     -> std::optional<std::vector<T>> {
     
+    // Prepare relevant types.
     using Cost = std::invoke_result_t<G, T, T>;
-    auto arena = detail::makeNodeArena<T, Cost>(sizeHint);
-    using State = detail::SearchState<T, Cost, decltype(arena)>;
+    using Arena = decltype(detail::makeNodeArena<T, Cost>(std::declval<size_t>()));
+    using State = detail::SearchState<T, Cost, Arena>;
     using Node = detail::SearchNode<T, Cost>;
     using NodePtr = detail::SearchNodePtr<T, Cost>;
+    
+    // Prepare data and functions
     std::vector<T> result;
     State searchState;
-    searchState.nodeArena = std::move(arena);
-    let sortNodes = [](let l, let r) {return l->costToCome > r->costToCome;};
-    let push = [&openSet = searchState.openSet, &sortNodes](NodePtr n) {
+    searchState.nodeArena = detail::makeNodeArena<T, Cost>(sizeHint);
+    let sortNodes = [](Node const& l, Node const& r) {
+        return l.costToCome > r.costToCome;};
+    let push = [&openSet = searchState.openSet, &sortNodes](Node& n) {
         // Don't push nodes if they have already been closed
-        if (n->isClosed) return;
-        if (n->isOpen) {
+        if (n.isClosed) return;
+        if (n.isOpen) {
             // If the node is in the open set, find it.
-            auto it = std::ranges::find_if(
-                openSet, [&n](let f) { return n->data == f->data; });
-            if (it == end(openSet)) {
+            auto openNodeIt = std::ranges::find_if(
+                openSet, [&n](let f) { return n.data == f.get().data; });
+            if (openNodeIt == end(openSet)) {
                 // This shouldn't happen, but in case it does...
                 goto pushNew;
             } else {
                 // The node in the open set has been found. Revise its cost
                 // and resort the heap.
-                (*it)->costToCome = n->costToCome;
+                openNodeIt->get().costToCome = n.costToCome;
                 std::make_heap(begin(openSet), end(openSet), sortNodes);
             }
         } else {
             // If the node is not in the open set, mark it as open and push
             // it to the heap.
             pushNew:
-            n->isOpen = true;
+            n.isOpen = true;
             openSet.push_back(n);
             std::push_heap(begin(openSet), end(openSet), sortNodes);
         }
     };
     let pop = [&openSet = searchState.openSet, &sortNodes] {
         std::pop_heap(begin(openSet), end(openSet), sortNodes);
-        NodePtr node = openSet.back();
+        Node& node = openSet.back();
         openSet.pop_back();
-        node->isClosed = true;
-        return node;
+        node.isClosed = true;
+        return std::ref(node);
     };
 
     // Special case, check if the start and the goal are the same.
@@ -288,30 +300,30 @@ fn prioritySearch(T start, T goal, N neighborFn, G costFn, size_t sizeHint = 100
         return result;
     }
 
-    auto startNodePtr = emplace(
-        searchState.nodeArena, start, std::make_shared<Node>(start));
+    Node& startNode = emplace(
+        searchState.nodeArena, start, std::make_unique<Node>(start));
     Node goalNode(goal);
-    startNodePtr->costToCome = 0;
-    searchState.openSet.push_back(startNodePtr);
+    startNode.costToCome = 0;
+    searchState.openSet.push_back(startNode);
     while (!searchState.openSet.empty()) {
-        let currentNode = pop();
-        if (currentNode->data == goal) {
-            goalNode = *currentNode;
+        Node& currentNode = pop();
+        if (currentNode.data == goal) {
+            goalNode = currentNode;
             break;
         }
-        let neighbors = neighborFn(currentNode->data);
+        let neighbors = neighborFn(currentNode.data);
         for (let neighbor : neighbors) {
-            NodePtr neighborNode = emplace(
+            Node& neighborNode = emplace(
                 searchState.nodeArena, 
                 neighbor, 
-                std::make_shared<Node>(neighbor));
+                std::make_unique<Node>(neighbor));
 
-            let newCost = currentNode->costToCome 
-                + costFn(currentNode->data, neighbor);
+            let newCost = currentNode.costToCome 
+                + costFn(currentNode.data, neighbor);
             if (newCost == std::numeric_limits<Cost>::max()) continue;
-            if (newCost < neighborNode->costToCome) {
-                neighborNode->costToCome = newCost;
-                neighborNode->parent = currentNode;
+            if (newCost < neighborNode.costToCome) {
+                neighborNode.costToCome = newCost;
+                neighborNode.parent = &currentNode;
                 push(neighborNode);
             }
         }

@@ -1,1 +1,0 @@
-This directory contains header files for basic numeric concepts

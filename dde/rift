@@ -1,0 +1,9 @@
+#!/bin/bash
+
+name="rift"
+pretty_name="Rift"
+base_image="ubuntu:focal"
+setup_script=$(realpath setup_rift)
+workspace=$(realpath .)
+
+source /opt/rsi/dde/dde

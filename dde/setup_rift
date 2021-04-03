@@ -1,0 +1,14 @@
+#!/bin/bash
+apt update
+apt install -y sudo nano build-essential git cmake wget curl vim
+useradd -m -p rift -G sudo,dialout rift
+touch /home/rift/.sudo_as_admin_successful
+echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+echo 'export HISTFILE=/home/rift/host/.bash_history' >> /home/rift/.bashrc
+wget "http://kayari.org/gcc-latest/gcc-latest_11.0.1-20210321gitfc24ea237425.deb"
+dpkg -i gcc-latest_11.0.1-20210321gitfc24ea237425.deb
+rm http://kayari.org/gcc-latest/gcc-latest_11.0.1-20210321gitfc24ea237425.deb
+wget "https://stage.build2.org/0/0.14.0-a.0/build2-install-0.14.0-a.0-stage.sh"
+sh build2-install-0.14.0-a.0-stage.sh
+rm build2-install-0.14.0-a.0-stage.sh
+

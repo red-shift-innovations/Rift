@@ -1,0 +1,3 @@
+# rift
+
+C++ library

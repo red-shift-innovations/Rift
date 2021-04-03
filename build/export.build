@@ -1,0 +1,6 @@
+$out_root/
+{
+  include rift/
+}
+
+export $out_root/rift/$import.target
